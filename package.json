@@ -1,13 +1,10 @@
 {
-  "name": "vehicle-info-api-akash",
+  "name": "vahan-api-akash",
   "version": "1.0.0",
-  "description": "Vehicle Info API by AKASHHACKER",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
     "express": "^4.18.2",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12"
   }
 }
