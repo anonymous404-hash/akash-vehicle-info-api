@@ -15,7 +15,7 @@ app.get('/', async (req, res) => {
 
     try {
         // Abhi-r API theke data fetch kora hochhe
-        const response = await axios.get(`https://vehicle-info-api-abhi.vercel.app/?rc_number=${rcNumber}`);
+        const response = await axios.get(`https://new-vehicle-api-eosin.vercel.app/vehicle?rc=${rcNumber}`);
         const apiData = response.data;
 
         // Ekhane amra response-ta sajachhi apnar name
