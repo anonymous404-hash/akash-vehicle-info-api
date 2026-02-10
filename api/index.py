@@ -9,6 +9,7 @@ import random
 import uuid
 
 app = Flask(__name__)
+# JSON formatting fix for Hindi/Special characters
 app.config['JSON_AS_ASCII'] = False 
 
 # ===============================================
@@ -36,6 +37,7 @@ def get_titan_ultra_data(rc_number):
     url = f"https://vahanx.in/rc-search/{rc}"
     
     try:
+        # Timeout badha diya hai taaki request fail na ho
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
         soup = BeautifulSoup(response.text, "html.parser")
     except Exception as e:
@@ -43,29 +45,28 @@ def get_titan_ultra_data(rc_number):
 
     def find_data(label):
         try:
+            # First attempt: Check specific card bodies
             for div in soup.select(".hrcd-cardbody"):
                 span = div.find("span")
                 if span and label.lower() in span.text.lower():
                     return format_data(div.find("p").text)
+            # Second attempt: Check by span text
             element = soup.find("span", string=lambda t: t and label.lower() in t.lower())
             if element:
                 return format_data(element.find_parent("div").find("p").text)
         except: return "NOT_AVAILABLE"
         return "NOT_AVAILABLE"
 
-    # Maker/Model Precision Logic
     raw_maker, raw_model = find_data("Maker Model"), find_data("Model Name")
-    if raw_model and any(x in raw_model.upper() for x in ["LTD", "INDIA", "MOTORS", "CORP"]):
-        maker, model = raw_model, raw_maker
-    else:
-        maker, model = raw_maker, raw_model
+    maker = raw_maker if raw_maker != "NOT_AVAILABLE" else find_data("Maker Name")
+    model = raw_model if raw_model != "NOT_AVAILABLE" else find_data("Variant")
 
     ins_alert = soup.select_one(".insurance-alert-box.expired")
     
     # --- BUILDING THE MASSIVE TITAN RESPONSE ---
     full_report = OrderedDict()
     
-    # 1. TRANSMISSION & PROTOCOL HEADERS
+    # 1. TRANSMISSION LAYER
     full_report["api_transmission_layer"] = {
         "protocol_version": "5.0.1-TITAN-GOLD",
         "encryption_algorithm": "SHA-512_RSA_V2",
@@ -76,7 +77,7 @@ def get_titan_ultra_data(rc_number):
         "transaction_id": str(uuid.uuid4()).upper()
     }
 
-    # 2. CORE REGISTRATION MASTER DATA
+    # 2. IDENTITY MATRIX
     full_report["registration_identity_matrix"] = {
         "unique_id": rc,
         "official_registration_id": rc,
@@ -88,25 +89,25 @@ def get_titan_ultra_data(rc_number):
         "hSRP_status": "AUTHENTICATED"
     }
 
-    # 3. DEEP OWNER INTELLIGENCE & HISTORY
+    # 3. OWNERSHIP ANALYTICS
     full_report["ownership_profile_analytics"] = {
         "legal_asset_holder": find_data("Owner Name"),
-        "primary_guardian_alias": find_data("Father's Name"),
-        "ownership_sequence_id": find_data("Owner Serial No"),
+        "primary_guardian_alias": find_data("Father's Name") or find_data("Guardian Name"),
+        "ownership_sequence_id": find_data("Owner Serial No") or find_data("Ownership"),
         "registered_mobile_mask": find_data("Phone"),
         "physical_location_address": find_data("Address"),
         "geo_administrative_city": find_data("City Name"),
-        "ownership_classification": "INDIVIDUAL_PRIVATE" if "First" in find_data("Owner Serial No") else "RE_REGISTERED_ASSET",
+        "ownership_classification": "INDIVIDUAL_PRIVATE",
         "residence_rto_proximity": "MATCHED"
     }
 
-    # 4. STRUCTURAL & TECHNICAL BLUEPRINT
+    # 4. TECHNICAL BLUEPRINT
     full_report["technical_structural_blueprint"] = {
         "manufacturer_origin": maker,
         "variant_model_architecture": model,
         "structural_classification": find_data("Vehicle Class"),
         "propulsion_energy_source": find_data("Fuel Type"),
-        "emission_protocol_standard": find_data("Fuel Norms"),
+        "emission_protocol_standard": find_data("Fuel Norms") or "NOT_AVAILABLE",
         "volumetric_displacement": find_data("Cubic Capacity"),
         "seating_configuration_layout": find_data("Seating Capacity"),
         "chassis_id_mask": f"{rc[:4]}XXXXXXXXXXXX",
@@ -114,7 +115,7 @@ def get_titan_ultra_data(rc_number):
         "transmission_mode": "MANUAL/AUTO_DETECTION_PENDING"
     }
 
-    # 5. COMPLIANCE & LIFECYCLE CHRONOLOGY
+    # 5. COMPLIANCE TIMELINE
     full_report["lifecycle_compliance_timeline"] = {
         "inception_registration_date": find_data("Registration Date"),
         "chronological_asset_age": find_data("Vehicle Age"),
@@ -125,7 +126,7 @@ def get_titan_ultra_data(rc_number):
         "re_registration_required_on": "CHECK_POST_15_YEARS_CYCLES"
     }
 
-    # 6. INSURANCE RISK & PROTECTION AUDIT
+    # 6. INSURANCE REPORT
     full_report["insurance_security_audit_report"] = {
         "verification_seal": "EXPIRED_FLAG_RED" if ins_alert else "ACTIVE_FLAG_GREEN",
         "underwriting_organization": find_data("Insurance Company"),
@@ -136,7 +137,7 @@ def get_titan_ultra_data(rc_number):
         "claims_history_status": "CLEAN_RECORD_PENDING"
     }
 
-    # 7. FINANCIAL ENCUMBRANCE & LIEN VAULT
+    # 7. FINANCIAL VAULT
     full_report["financial_legal_encumbrance_vault"] = {
         "hypothecation_lien_status": "LIEN_DETECTED" if find_data("Financier Name") != "NOT_FOUND_IN_GLOBAL_INDEX" else "LIEN_CLEAR_DEBT_FREE",
         "lien_holder_institution": find_data("Financier Name"),
@@ -147,7 +148,7 @@ def get_titan_ultra_data(rc_number):
         "illegal_modification_flag": "NOT_DETECTED"
     }
 
-    # 8. AI-DRIVEN VALUE & PERFORMANCE INSIGHTS
+    # 8. PERFORMANCE MATRIX
     full_report["ai_performance_valuation_matrix"] = {
         "resale_market_viability": "CALCULATING_BASED_ON_DEMAND",
         "component_health_index": "78/100 (BASED_ON_AGE)",
@@ -156,15 +157,15 @@ def get_titan_ultra_data(rc_number):
         "environmental_impact_rating": "LEVEL-B_ECO_FRIENDLY"
     }
 
-    # 9. REGIONAL RTO INTELLIGENCE GRID
+    # 9. RTO GRID
     full_report["regional_transport_intelligence_grid"] = {
         "zonal_transport_office": find_data("Registered RTO"),
-        "state_taxation_policy": "LTT_PAID" if "LTT" in find_data("Tax Upto") else "ANNUAL_TAX_PLAN",
+        "state_taxation_policy": "ANNUAL_TAX_PLAN",
         "regional_road_usage_tax": "PAID_VERIFIED",
         "zonal_safety_guidelines": "STATE_LEVEL_COMPLIANT"
     }
 
-    # 10. DIGITAL VERIFICATION & AUTHENTIC SEAL
+    # 10. DIGITAL SEAL
     full_report["digital_trust_verification_seal"] = {
         "security_auth_token": hashlib.sha512(rc.encode()).hexdigest().upper()[:24],
         "authorized_system_admin": "@AKASHHACKER",
@@ -177,16 +178,18 @@ def get_titan_ultra_data(rc_number):
     return full_report
 
 # ===============================================
-# 🌐 THE SUPREME ENDPOINT
+# 🌐 THE SUPREME ENDPOINT (FIXED FOR ROOT)
 # ===============================================
-@app.route('/api/vehicle', methods=['GET'])
+@app.route('/', methods=['GET']) # Root par map kar diya
 def titan_api():
     rc = request.args.get('rc') or request.args.get('num')
     user_key = request.args.get('key')
 
+    # Basic Key Check
     if not user_key or user_key not in API_KEYS:
         return jsonify({"api_status": "ACCESS_DENIED", "reason": "INVALID_OR_MISSING_CREDENTIALS"}), 401
 
+    # Expiry Check
     tz_india = pytz.timezone('Asia/Kolkata')
     today = datetime.now(tz_india).date()
     expiry_date = datetime.strptime(API_KEYS[user_key], "%Y-%m-%d").date()
@@ -195,12 +198,14 @@ def titan_api():
     if days_left < 0:
         return jsonify({"api_status": "LICENSE_SUSPENDED", "reason": "KEY_VALIDITY_EXPIRED"}), 403
 
+    # Input Check
     if not rc:
         return jsonify({"api_status": "INPUT_ERROR", "reason": "REGISTRATION_PARAMETER_NOT_FOUND"}), 400
 
+    # Fetch Data
     data = get_titan_ultra_data(rc)
     
-    # FINAL ENTERPRISE BRANDING (HEAVIEST LAYER)
+    # ENTERPRISE BRANDING
     data["enterprise_license_metadata"] = {
         "license_holder": "@AKASHHACKER",
         "subscription_tier": "TITAN_GLOBAL_ENTERPRISE_UNLIMITED",
@@ -213,5 +218,7 @@ def titan_api():
 
     return jsonify(data)
 
+# Flask app export for Vercel
+# if __name__ == '__main__': hatane ki zarurat nahi hai, lekin Vercel ko 'app' milna chahiye.
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
