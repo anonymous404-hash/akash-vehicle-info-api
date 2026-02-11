@@ -1,5 +1,9 @@
-from flask import Flask, request, jsonify
+import os
+import re
+import time
+import json
 import requests
+from flask import Flask, request, jsonify, render_template_string
 from bs4 import BeautifulSoup
 from datetime import datetime
 import pytz
@@ -9,11 +13,10 @@ import random
 import uuid
 
 app = Flask(__name__)
-# JSON formatting fix for Hindi/Special characters
 app.config['JSON_AS_ASCII'] = False 
 
 # ===============================================
-# 🔐 ADVANCED ACCESS CONTROL (VAULT)
+# 🔐 ACCESS CONTROL
 # ===============================================
 API_KEYS = {
     "AKASH_PAID30DAYS": "2026-03-15",
@@ -21,49 +24,40 @@ API_KEYS = {
     "TITAN_MASTER_KEY": "2030-01-01"
 }
 
+COPYRIGHT_HANDLE = "@AkashHacker"
+
 # ===============================================
-# 🛠️ DATA REFINERY UNIT
+# 🛠️ DATA REFINERY
 # ===============================================
 def format_data(val, default="NOT_FOUND_IN_GLOBAL_INDEX"):
     if not val or val.strip().lower() in ["na", "null", "none", "", "-", "0", "0 cc"]:
         return default
     return val.strip()
 
-# ===============================================
-# 🚙 THE TITAN SEARCH ENGINE (V5 SUPREME)
-# ===============================================
 def get_titan_ultra_data(rc_number):
     rc = rc_number.strip().upper()
     url = f"https://vahanx.in/rc-search/{rc}"
     
     try:
-        # Timeout badha diya hai taaki request fail na ho
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
         soup = BeautifulSoup(response.text, "html.parser")
-    except Exception as e:
+    except:
         return {"system_error": "GATEWAY_TIMEOUT", "trace_id": str(uuid.uuid4())}
 
     def find_data(label):
         try:
-            # First attempt: Check specific card bodies
             for div in soup.select(".hrcd-cardbody"):
                 span = div.find("span")
                 if span and label.lower() in span.text.lower():
                     return format_data(div.find("p").text)
-            # Second attempt: Check by span text
             element = soup.find("span", string=lambda t: t and label.lower() in t.lower())
             if element:
                 return format_data(element.find_parent("div").find("p").text)
         except: return "NOT_AVAILABLE"
         return "NOT_AVAILABLE"
 
-    raw_maker, raw_model = find_data("Maker Model"), find_data("Model Name")
-    maker = raw_maker if raw_maker != "NOT_AVAILABLE" else find_data("Maker Name")
-    model = raw_model if raw_model != "NOT_AVAILABLE" else find_data("Variant")
-
     ins_alert = soup.select_one(".insurance-alert-box.expired")
     
-    # --- BUILDING THE MASSIVE TITAN RESPONSE ---
     full_report = OrderedDict()
     
     # 1. TRANSMISSION LAYER
@@ -103,11 +97,11 @@ def get_titan_ultra_data(rc_number):
 
     # 4. TECHNICAL BLUEPRINT
     full_report["technical_structural_blueprint"] = {
-        "manufacturer_origin": maker,
-        "variant_model_architecture": model,
+        "manufacturer_origin": find_data("Maker Model") or find_data("Maker Name"),
+        "variant_model_architecture": find_data("Model Name") or find_data("Variant"),
         "structural_classification": find_data("Vehicle Class"),
         "propulsion_energy_source": find_data("Fuel Type"),
-        "emission_protocol_standard": find_data("Fuel Norms") or "NOT_AVAILABLE",
+        "emission_protocol_standard": find_data("Fuel Norms"),
         "volumetric_displacement": find_data("Cubic Capacity"),
         "seating_configuration_layout": find_data("Seating Capacity"),
         "chassis_id_mask": f"{rc[:4]}XXXXXXXXXXXX",
@@ -120,28 +114,30 @@ def get_titan_ultra_data(rc_number):
         "inception_registration_date": find_data("Registration Date"),
         "chronological_asset_age": find_data("Vehicle Age"),
         "fitness_certification_expiry": find_data("Fitness Upto"),
-        "taxation_validity_threshold": find_data("Tax Upto") or find_data("Tax Paid Upto"),
+        "taxation_validity_threshold": find_data("Tax Upto"),
         "puc_environmental_clearance": find_data("PUC Upto"),
         "scrap_policy_eligibility": "NOT_ELIGIBLE_FOR_SCRAP",
         "re_registration_required_on": "CHECK_POST_15_YEARS_CYCLES"
     }
 
-    # 6. INSURANCE REPORT
+    # 6. INSURANCE REPORT (With New Working Fields)
     full_report["insurance_security_audit_report"] = {
         "verification_seal": "EXPIRED_FLAG_RED" if ins_alert else "ACTIVE_FLAG_GREEN",
         "underwriting_organization": find_data("Insurance Company"),
+        "insurance_type": find_data("Insurance Type") or "THIRD_PARTY_LIABILITY",
         "contract_policy_serial": find_data("Insurance No"),
-        "protection_validity_limit": find_data("Insurance Expiry") or find_data("Insurance Upto"),
+        "protection_validity_limit": find_data("Insurance Expiry"),
         "risk_exposure_rating": "CRITICAL_ATTENTION" if ins_alert else "MINIMAL_RISK",
         "liability_protection_tier": "THIRD_PARTY_LIABILITY_INCLUDED",
         "claims_history_status": "CLEAN_RECORD_PENDING"
     }
 
-    # 7. FINANCIAL VAULT
+    # 7. FINANCIAL VAULT (With New Working Fields)
     full_report["financial_legal_encumbrance_vault"] = {
-        "hypothecation_lien_status": "LIEN_DETECTED" if find_data("Financier Name") != "NOT_FOUND_IN_GLOBAL_INDEX" else "LIEN_CLEAR_DEBT_FREE",
+        "hypothecation_lien_status": "LIEN_DETECTED" if find_data("Financier Name") != "NOT_FOUND_IN_GLOBAL_INDEX" else "LIEN_CLEAR",
         "lien_holder_institution": find_data("Financier Name"),
         "blacklist_integrity_check": find_data("Blacklist Status"),
+        "blacklist_reason": find_data("Blacklist Details") or "NONE",
         "noc_issuance_records": find_data("NOC Details"),
         "commercial_permit_validation": find_data("Permit Type"),
         "litigation_check_status": "NO_ACTIVE_COURT_PROCEEDINGS",
@@ -153,21 +149,22 @@ def get_titan_ultra_data(rc_number):
         "resale_market_viability": "CALCULATING_BASED_ON_DEMAND",
         "component_health_index": "78/100 (BASED_ON_AGE)",
         "fuel_efficiency_optimization": "STANDARD_SEGMENT_PERFORMANCE",
-        "safety_equipment_compliance": "PASS_MINIMUM_SAFETY_STANDARDS",
-        "environmental_impact_rating": "LEVEL-B_ECO_FRIENDLY"
+        "environmental_impact_rating": "LEVEL-B_ECO_FRIENDLY",
+        "safety_equipment_compliance": "PASS_MINIMUM_SAFETY_STANDARDS"
     }
 
-    # 9. RTO GRID
+    # 9. RTO GRID (With New Working Fields)
     full_report["regional_transport_intelligence_grid"] = {
         "zonal_transport_office": find_data("Registered RTO"),
-        "state_taxation_policy": "ANNUAL_TAX_PLAN",
+        "rto_pincode": find_data("Pincode") or "MATCH_BY_CITY",
         "regional_road_usage_tax": "PAID_VERIFIED",
+        "state_taxation_policy": "ANNUAL_TAX_PLAN",
         "zonal_safety_guidelines": "STATE_LEVEL_COMPLIANT"
     }
 
     # 10. DIGITAL SEAL
     full_report["digital_trust_verification_seal"] = {
-        "security_auth_token": hashlib.sha512(rc.encode()).hexdigest().upper()[:24],
+        "security_auth_token": hashlib.sha256(rc.encode()).hexdigest().upper()[:24],
         "authorized_system_admin": "@AKASHHACKER",
         "verification_source": "GLOBAL_VAHAN_DATABASE",
         "official_seal_id": f"SEAL-{random.randint(100000, 999999)}",
@@ -177,48 +174,38 @@ def get_titan_ultra_data(rc_number):
 
     return full_report
 
-# ===============================================
-# 🌐 THE SUPREME ENDPOINT (FIXED FOR ROOT)
-# ===============================================
-@app.route('/', methods=['GET']) # Root par map kar diya
+@app.route('/', methods=['GET'])
 def titan_api():
     rc = request.args.get('rc') or request.args.get('num')
     user_key = request.args.get('key')
 
-    # Basic Key Check
-    if not user_key or user_key not in API_KEYS:
-        return jsonify({"api_status": "ACCESS_DENIED", "reason": "INVALID_OR_MISSING_CREDENTIALS"}), 401
+    if not rc and not user_key:
+        return f"<h2>🔐 TITAN V5 SUPREME LIVE</h2><p>Developer: {COPYRIGHT_HANDLE}</p><p>Endpoint: <code>/?rc=NUM&key=KEY</code></p>"
 
-    # Expiry Check
+    if not user_key or user_key not in API_KEYS:
+        return jsonify({"api_status": "ACCESS_DENIED"}), 401
+
     tz_india = pytz.timezone('Asia/Kolkata')
     today = datetime.now(tz_india).date()
     expiry_date = datetime.strptime(API_KEYS[user_key], "%Y-%m-%d").date()
     days_left = (expiry_date - today).days
 
     if days_left < 0:
-        return jsonify({"api_status": "LICENSE_SUSPENDED", "reason": "KEY_VALIDITY_EXPIRED"}), 403
+        return jsonify({"api_status": "EXPIRED"}), 403
 
-    # Input Check
-    if not rc:
-        return jsonify({"api_status": "INPUT_ERROR", "reason": "REGISTRATION_PARAMETER_NOT_FOUND"}), 400
-
-    # Fetch Data
     data = get_titan_ultra_data(rc)
     
-    # ENTERPRISE BRANDING
     data["enterprise_license_metadata"] = {
-        "license_holder": "@AKASHHACKER",
+        "license_holder": COPYRIGHT_HANDLE,
         "subscription_tier": "TITAN_GLOBAL_ENTERPRISE_UNLIMITED",
         "system_status": "OPTIMIZED_CLUSTERS_ACTIVE",
         "license_remaining": f"{days_left} CALENDAR_DAYS",
-        "technical_support": "TELEGRAM_ID_@AKASHHACKER",
+        "technical_support": f"TELEGRAM_ID_{COPYRIGHT_HANDLE}",
         "infrastructure": "HYBRID_CLOUD_NODE_V5",
         "server_local_time": datetime.now(tz_india).strftime("%Y-%m-%d %H:%M:%S")
     }
 
     return jsonify(data)
 
-# Flask app export for Vercel
-# if __name__ == '__main__': hatane ki zarurat nahi hai, lekin Vercel ko 'app' milna chahiye.
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
