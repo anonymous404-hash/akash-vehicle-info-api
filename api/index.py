@@ -24,7 +24,7 @@ API_KEYS = {
     "TITAN_MASTER_KEY": "2030-01-01"
 }
 
-COPYRIGHT_HANDLE = "@AkashHacker"
+COPYRIGHT_HANDLE = "@Akashishare"
 
 # ===============================================
 # 🛠️ DATA REFINERY
@@ -165,7 +165,7 @@ def get_titan_ultra_data(rc_number):
     # 10. DIGITAL SEAL
     full_report["digital_trust_verification_seal"] = {
         "security_auth_token": hashlib.sha256(rc.encode()).hexdigest().upper()[:24],
-        "authorized_system_admin": "@AKASHHACKER",
+        "authorized_system_admin": "@Akashishare",
         "verification_source": "GLOBAL_VAHAN_DATABASE",
         "official_seal_id": f"SEAL-{random.randint(100000, 999999)}",
         "trust_verification_status": "AUTHENTICATED_SECURE_ENCRYPTED",
