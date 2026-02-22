@@ -24,7 +24,7 @@ API_KEYS = {
     "TITAN_MASTER_KEY": "2030-01-01"
 }
 
-COPYRIGHT_HANDLE = "@Akash_Exploitss_bot"
+COPYRIGHT_HANDLE = "@Akash_Exploits_bot"
 
 # ===============================================
 # 🛠️ UTILS
